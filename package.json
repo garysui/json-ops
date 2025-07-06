@@ -24,10 +24,10 @@
   },
   "repository": {
     "type": "git",
-    "url": ""
+    "url": "https://github.com/garysui/json-ops.git"
   },
-  "homepage": "",
+  "homepage": "https://github.com/garysui/json-ops",
   "bugs": {
-    "url": ""
+    "url": "https://github.com/garysui/json-ops/issues"
   }
 }
