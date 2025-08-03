@@ -1,5 +1,11 @@
 # 🧩 JSON-OPS: Flatten/Unflatten, Diff, and Patch Nested Data Structures
 
+[![npm version](https://badge.fury.io/js/%40garysui%2Fjson-ops.svg)](https://www.npmjs.com/package/@garysui/json-ops)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg)](https://www.typescriptlang.org/)
+[![Bundle Size](https://img.shields.io/bundlephobia/minzip/@garysui/json-ops)](https://bundlephobia.com/package/@garysui/json-ops)
+[![Test Coverage](https://img.shields.io/badge/tests-104%20passing-brightgreen.svg)](https://github.com/garysui/json-ops)
+
 This utility provides a powerful, deterministic way to:
 
 - 🔄 Flatten deeply nested JavaScript objects and arrays into symbolic path-value pairs
@@ -195,3 +201,73 @@ This pattern draws inspiration from:
 - Operational transforms
 - Functional data modeling
 - Immutable tree diffs
+
+---
+
+## 📋 Installation
+
+```bash
+npm install @garysui/json-ops
+```
+
+**Requirements:**
+- Node.js 14+
+- TypeScript 4.0+ (for TypeScript projects)
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
+
+**Development Setup:**
+```bash
+git clone https://github.com/garysui/json-ops.git
+cd json-ops
+npm install
+npm test
+npm run build
+```
+
+---
+
+## 📝 License
+
+MIT License
+
+Copyright (c) 2024 Gary Sui
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+## 📊 Package Stats
+
+- **Bundle size**: ~8KB minified
+- **Dependencies**: Zero runtime dependencies
+- **TypeScript**: Full type definitions included
+- **Tests**: 104+ test cases covering edge cases and real-world scenarios
+
+---
+
+## 🔗 Links
+
+- [npm package](https://www.npmjs.com/package/@garysui/json-ops)
+- [GitHub repository](https://github.com/garysui/json-ops)
+- [Issues & Bug Reports](https://github.com/garysui/json-ops/issues)
