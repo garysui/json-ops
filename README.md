@@ -1,224 +1,197 @@
-# json-ops
+# 🧩 JSON-OPS: Flatten/Unflatten, Diff, and Patch Nested Data Structures
 
-Simple utility functions for JSON operations
+This utility provides a powerful, deterministic way to:
 
-## Installation
+- 🔄 Flatten deeply nested JavaScript objects and arrays into symbolic path-value pairs
+- 🧠 Compute structural diffs between two data trees
+- 🛠 Apply diffs to transform one object into another
+- 🫥 Handle `undefined` values safely and reversibly
 
-```bash
-npm install json-ops
+---
+
+## 🚀 Features
+
+- ✅ Custom symbolic path encoding (e.g. `""`, `"."`, `"@"`, `.x@0.y`)
+- ✅ Root-type awareness (primitive, object, array)
+- ✅ Full `replaceUndefined` and `restoreUndefined` logic
+- ✅ Flat/unflat conversion
+- ✅ Sorted key diffing with structure-aware optimizations
+- ✅ Reversible and patch-safe
+
+---
+
+## 🧱 Path Notation
+
+| Path     | Meaning                               | Example Input     | Flat Output              |
+|----------|----------------------------------------|--------------------|---------------------------|
+| `""`     | Root is primitive                      | `42`               | `[{"": 42}]`             |
+| `"."`    | Root is object                         | `{}`               | `[{"." : {}}]`           |
+| `"@"`    | Root is array                          | `[]`               | `[{"@" : []}]`           |
+| `"@0"`   | Array index 0                          | `[1]`              | `[{"@0": 1}]`            |
+| `"@0@1"` | Nested array                           | `[[2]]`            | `[{"@0@1": 2}]`          |
+| `".x"`   | Object key `"x"`                       | `{ x: 1 }`         | `[{" .x": 1}]`           |
+| `".x@1"` | Object → Array                         | `{ x: [10, 11] }`  | `[{" .x@1": 11}]`        |
+| `"@0.y"` | Array → Object                         | `[{ y: 5 }]`       | `[{"@0.y": 5}]`          |
+
+---
+
+## ✏️ Visual Diagram
+
+```
+Input:
+{
+  user: {
+    name: "Alice",
+    roles: ["admin", "editor"],
+    profile: {
+      age: 30,
+      preferences: []
+    }
+  }
+}
+
+Flat Output:
+[
+  { ".user.name": "Alice" },
+  { ".user.roles@0": "admin" },
+  { ".user.roles@1": "editor" },
+  { ".user.profile.age": 30 },
+  { ".user.profile.preferences@": [] }  // empty array marker
+]
 ```
 
-## Usage
+---
 
-```typescript
-import { flat, unflat, diff, apply, sortKeys, replaceUndefined, restoreUndefined } from 'json-ops';
+## ✨ Usage
 
-// Flatten and unflatten objects
-const flattened = flat(obj);
-const restored = unflat(flattened);
+### 1. **Flatten a value**
 
-// Compare objects and get diff operations
-const operations = diff(oldObj, newObj);
+```ts
+flat(42)
+// → [{ "": 42 }]
 
-// Apply operations to transform objects
-const result = apply(inputObj, operations);
+flat({ x: [1, 2] })
+// → [{ ".x@0": 1 }, { ".x@1": 2 }]
 
-// Sort object keys recursively
-const sorted = sortKeys(unsortedObj);
-
-// Handle undefined values
-const withoutUndefined = replaceUndefined(objWithUndefined);
-const withUndefined = restoreUndefined(withoutUndefined);
+flat([[3]])
+// → [{ "@0@0": 3 }]
 ```
 
-## API
+---
 
-### `flat(obj: any): string[]`
+### 2. **Unflatten a structure**
 
-Flattens a JSON object or value. 
-**Parameters:**
-- `obj` - The object or value to flatten
+```ts
+unflat([{ ".x@0": 1 }, { ".x@1": 2 }])
+// → { x: [1, 2] }
 
-**Returns:**
-- The flattened object
-
-**Examples:**
-```typescript
-flat(replaceUndefined(undefined)) // => [{"":"__UNDEFINED__"}]
-flat(0) // => [{"":0}]
-flat(1) // => [{"":1}]
-flat("hello") // => [{"":"hello"}]
-flat(null) // => [{"":null}]
-flat([]) // => [{"[]":0}]
-flat([1, 2, 3]) // => [{"[0]":1},{"[1]":2},{"[2]":3}]
-flat([1, [2, 3]]) // => [{"[0]":1},{"[1][0]":2},{"[1][1]":3}]
-flat({}) // => [{".":0}]
-flat({x: 1, y: 2}) // => [{".x":1},{".y":2}]
-flat({x: {y: 2}}) // => [{".x.y":2}]
+unflat([{ "@0@0": 3 }])
+// → [[3]]
 ```
 
-**Limitations:**
-- `bigint` values are not supported as they don't serialize well to JSON
-- `undefined` values may not serialize consistently across different environments
-- `symbol` values are not supported as they are not serializable in JSON
+---
 
-**Working with Plain JavaScript Objects containing `undefined`:**
-If you need to use `flat` with plain JavaScript objects that contain `undefined` values, pretreat them with `replaceUndefined` and restore them with `restoreUndefined`:
+### 3. **Handle `undefined` values**
 
-```typescript
-import { flat, unflat, replaceUndefined, restoreUndefined } from 'json-ops';
+```ts
+replaceUndefined({ a: undefined })
+// → { a: "__UNDEFINED__" }
 
-const obj = { a: 1, b: undefined, c: [2, undefined, 3] };
-
-// Pretreat with replaceUndefined
-const replaced = replaceUndefined(obj);
-const flattened = flat(replaced);
-const unflattened = unflat(flattened);
-// Restore undefined values
-const restored = restoreUndefined(unflattened);
-
-console.log(restored); // { a: 1, b: undefined, c: [2, undefined, 3] }
+restoreUndefined({ a: "__UNDEFINED__" })
+// → { a: undefined }
 ```
 
-### `diff(a: unknown, b: unknown): DiffOperation[]`
+---
 
-Compares two objects and returns an array of operations needed to transform object `a` into object `b`. Uses `sortKeys` and `flat` internally for consistent comparison. Optimizes empty-to-filled transitions by avoiding unnecessary remove operations.
+### 4. **Diff two objects**
 
-**Parameters:**
-- `a` - The source object/value
-- `b` - The target object/value
+```ts
+diff({ x: 1 }, { x: 2 })
+// → [ { type: 'set', path: '.x', value: 2 } ]
 
-**Returns:**
-- Array of diff operations with types: `add`, `remove`, or `set`
+diff({ x: {} }, { x: { y: 1 } })
+// → [ { type: 'add', path: '.x.y', value: 1 } ]
+// (optimized: does not redundantly remove `x` then add again)
+```
 
-**Operation Types:**
-```typescript
+---
+
+### 5. **Apply a diff**
+
+```ts
+const obj1 = { x: 1 };
+const obj2 = { x: 2 };
+const ops = diff(obj1, obj2);
+
+apply(obj1, ops);
+// → { x: 2 }
+```
+
+---
+
+## 🔍 Internals
+
+- ⚖️ **Idempotent**: `unflat(flat(x))` always reconstructs `x` exactly (after `replaceUndefined` and `restoreUndefined` handling), and `flat(unflat(x))` produces the same flat structure
+
+- Paths use:
+  - `.` for object keys
+  - `@` for array indices
+
+- Empty arrays/objects are preserved via:
+  - `[{"@": []}]` or `[{"." : {}}]`
+
+- Structural diffs optimize away redundant empty structure adds/removes
+
+---
+
+## 🧪 Types
+
+```ts
 type DiffOperation = 
-  | { type: 'add'; path: string; value: unknown }    // Add new path
-  | { type: 'remove'; path: string }                 // Remove existing path  
-  | { type: 'set'; path: string; value: unknown };   // Change existing value
+  | { type: 'add'; path: string; value: unknown }
+  | { type: 'remove'; path: string }
+  | { type: 'set'; path: string; value: unknown };
 ```
 
-**Examples:**
-```typescript
-// Simple object differences
-diff({ x: 1, y: 2 }, { x: 1, y: 3, z: 4 })
-// => [
-//   { type: 'set', path: '.y', value: 3 },
-//   { type: 'add', path: '.z', value: 4 }
-// ]
+---
 
-// Nested object differences  
-diff({ user: { name: 'John' } }, { user: { name: 'Jane', age: 30 } })
-// => [
-//   { type: 'add', path: '.user.age', value: 30 },
-//   { type: 'set', path: '.user.name', value: 'Jane' }
-// ]
+## 📦 Use Cases
 
-// Array differences
-diff({ items: [1, 2, 3] }, { items: [1, 4, 3, 5] })
-// => [
-//   { type: 'set', path: '.items[1]', value: 4 },
-//   { type: 'add', path: '.items[3]', value: 5 }
-// ]
+- 🗃️ Comparing edited JSON objects to generate database or API operations
+- 🔁 Config/version state diffing
+- 🔐 Fine-grained access control enforcement
+- 📜 Change tracking for forms or editors
+- ☁️ Patchable event systems (like OT or CRDT)
+- 🔍 JSON structure testing and assertions
 
-// Primitive differences
-diff(42, 'hello')
-// => [{ type: 'set', path: '', value: 'hello' }]
+---
 
-// No differences
-diff({ x: 1 }, { x: 1 })
-// => []
+## 🛡 Caveats
+
+- Input with raw `undefined` must use `replaceUndefined()` before flattening
+- Currently treats mixed object/array roots as objects when ambiguous
+
+---
+
+## 📁 Exports
+
+```ts
+replaceUndefined(obj): SafeObject
+restoreUndefined(obj): OriginalObject
+flat(obj): FlatEntry[]
+unflat(entries: FlatEntry[]): OriginalObject
+diff(a, b): DiffOperation[]
+apply(obj, diff): NewObject
+sortKeys(obj): SortedObject
 ```
 
-### `apply(input: unknown, operations: DiffOperation[]): unknown`
+---
 
-Applies a list of diff operations to an input object and returns the transformed result. This function can be used together with `diff` to apply changes from one object to another.
+## 🧠 Credits
 
-**Parameters:**
-- `input` - The object/value to apply operations to
-- `operations` - Array of diff operations to apply (as returned by `diff`)
+This pattern draws inspiration from:
 
-**Returns:**
-- New object/value with all operations applied
-
-**Examples:**
-```typescript
-// Apply basic operations
-const input = { x: 1, y: 2 };
-const operations = [
-  { type: 'set', path: '.y', value: 3 },
-  { type: 'add', path: '.z', value: 4 }
-];
-apply(input, operations)
-// => { x: 1, y: 3, z: 4 }
-
-// Apply nested operations
-const input2 = { user: { name: 'John' } };
-const operations2 = [
-  { type: 'set', path: '.user.name', value: 'Jane' },
-  { type: 'add', path: '.user.age', value: 30 }
-];
-apply(input2, operations2)
-// => { user: { name: 'Jane', age: 30 } }
-
-// Round-trip with diff
-const a = { x: 1, obj: { y: 2 }, arr: [1, 2] };
-const b = { x: 2, obj: {}, arr: [] };
-const ops = diff(a, b);
-const result = apply(a, ops);
-// result equals b
-
-// Empty structure preservation
-const input3 = { obj: { x: 1 }, arr: [1, 2] };
-const operations3 = [
-  { type: 'remove', path: '.obj.x' },
-  { type: 'remove', path: '.arr[0]' },
-  { type: 'remove', path: '.arr[1]' }
-];
-apply(input3, operations3)
-// => { obj: {}, arr: [] }  // Preserves empty structures
-```
-
-### `sortKeys(obj: unknown): unknown`
-
-Recursively sorts object keys alphabetically while preserving the structure. Handles nested objects and arrays containing objects.
-
-**Parameters:**
-- `obj` - The object/value to sort keys for
-
-**Returns:**
-- New object/value with sorted keys (primitives returned unchanged)
-
-**Examples:**
-```typescript
-sortKeys({ z: 1, a: { c: 3, b: 2 } })
-// => { a: { b: 2, c: 3 }, z: 1 }
-
-sortKeys([{ z: 'last', a: 'first' }])
-// => [{ a: 'first', z: 'last' }]
-```
-
-## Development
-
-### Build
-
-```bash
-npm run build
-```
-
-### Test
-
-```bash
-npm test
-```
-
-### Test in watch mode
-
-```bash
-npm run test:watch
-```
-
-## License
-
-MIT
+- JSON patching
+- Operational transforms
+- Functional data modeling
+- Immutable tree diffs

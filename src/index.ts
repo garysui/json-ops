@@ -38,20 +38,20 @@ export function flat(obj: unknown): Record<string, unknown>[] {
   }
 
   if (Array.isArray(obj)) {
-    if (obj.length === 0) return [{ "[]": 0 }];
+    if (obj.length === 0) return [{ "@": [] }];
     return obj.flatMap((val, i) => {
       if (Array.isArray(val) && val.length === 0) {
-        return [{ [`[${i}][]`]: 0 }];
+        return [{ [`@${i}@`]: [] }];
       }
       return flat(val).map(e => {
         const [k, v] = Object.entries(e)[0];
-        return { [`[${i}]${k}`]: v };
+        return { [`@${i}${k}`]: v };
       });
     });
   }
 
   if (typeof obj === 'object') {
-    if (Object.keys(obj).length === 0) return [{ ".": 0 }];
+    if (Object.keys(obj).length === 0) return [{ ".": {} }];
     return Object.entries(obj).flatMap(([k, v]) => flat(v).map(e => {
       const [subk, subv] = Object.entries(e)[0];
       return { [`.${k}${subk}`]: subv };
@@ -64,7 +64,7 @@ export function flat(obj: unknown): Record<string, unknown>[] {
 export function unflat(entries: Record<string, unknown>[]): unknown {
   if (entries.length === 1 && entries[0][""] !== undefined) return entries[0][""];
   if (entries.length === 1 && "." in entries[0]) return {};
-  if (entries.length === 1 && "[]" in entries[0]) return [];
+  if (entries.length === 1 && "@" in entries[0]) return [];
 
   // Group entries by their root segment
   const groups = new Map<string, Record<string, unknown>[]>();
@@ -77,8 +77,8 @@ export function unflat(entries: Record<string, unknown>[]): unknown {
     let remainingPath: string;
 
     if (path.startsWith('.')) {
-      // Property access: .prop or .prop.more or .prop[0] etc
-      const match = path.match(/^(\.[^.\[]+)(.*)/);
+      // Property access: .prop or .prop.more or .prop@0 etc
+      const match = path.match(/^(\.[^.\@]+)(.*)/);
       if (match) {
         rootSegment = match[1];
         remainingPath = match[2];
@@ -87,15 +87,15 @@ export function unflat(entries: Record<string, unknown>[]): unknown {
         rootSegment = '.';
         remainingPath = '';
       }
-    } else if (path.startsWith('[')) {
-      // Array access: [0] or [0].more etc
-      const match = path.match(/^(\[\d+\])(.*)/);
+    } else if (path.startsWith('@')) {
+      // Array access: @0 or @0.more etc
+      const match = path.match(/^(@\d*)(.*)/);
       if (match) {
         rootSegment = match[1];
         remainingPath = match[2];
       } else {
-        // Handle standalone '[]'
-        rootSegment = '[]';
+        // Handle standalone '@'
+        rootSegment = '@';
         remainingPath = '';
       }
     } else if (path === '') {
@@ -121,19 +121,19 @@ export function unflat(entries: Record<string, unknown>[]): unknown {
   }
 
   // Determine if result should be an array or object
-  const hasArrayIndices = Array.from(groups.keys()).some(key => key.startsWith('[') && key !== '[]');
+  const hasArrayIndices = Array.from(groups.keys()).some(key => key.startsWith('@') && key !== '@');
   const hasProperties = Array.from(groups.keys()).some(key => key.startsWith('.') && key !== '.');
 
   if (hasArrayIndices && !hasProperties) {
     // Pure array
     const result: any[] = [];
     for (const [rootSegment, subEntries] of groups) {
-      if (rootSegment.startsWith('[') && rootSegment !== '[]') {
-        const index = parseInt(rootSegment.slice(1, -1), 10);
+      if (rootSegment.startsWith('@') && rootSegment !== '@') {
+        const index = parseInt(rootSegment.slice(1), 10);
         result[index] = unflat(subEntries);
-      } else if (rootSegment === '[]') {
-        // This shouldn't happen in a pure array context
-        result.push([]);
+      } else if (rootSegment === '@') {
+        // Empty array marker
+        return [];
       }
     }
     return result;
@@ -144,8 +144,15 @@ export function unflat(entries: Record<string, unknown>[]): unknown {
       if (rootSegment.startsWith('.') && rootSegment !== '.') {
         const key = rootSegment.slice(1);
         result[key] = unflat(subEntries);
+      } else if (rootSegment.startsWith('@') && rootSegment !== '@') {
+        // Mixed case: object with numeric array-like properties
+        const index = rootSegment.slice(1);
+        result[index] = unflat(subEntries);
       } else if (rootSegment === '.') {
         // Empty object marker - should be handled by early return
+      } else if (rootSegment === '@') {
+        // Handle empty array in mixed context
+        result[rootSegment] = [];
       }
     }
     return result;
@@ -209,7 +216,7 @@ export function diff(a: unknown, b: unknown): DiffOperation[] {
   
   for (const path of allPaths) {
     // Check if this is an empty object/array marker being removed while properties are added
-    if (path.endsWith('.') || path.endsWith('[]')) {
+    if (path.endsWith('.') || path.endsWith('@')) {
       const prefix = path.slice(0, -1); // Remove the trailing marker
       const hasRemovedEmpty = mapA.has(path) && !mapB.has(path);
       const hasAddedEmpty = !mapA.has(path) && mapB.has(path);
@@ -306,7 +313,7 @@ export function apply(input: unknown, operations: DiffOperation[]): unknown {
     const [path] = Object.entries(entry)[0];
     
     // If this is already an empty structure marker, add it
-    if (path.endsWith('.') || path.endsWith('[]')) {
+    if (path.endsWith('.') || path.endsWith('@')) {
       originalStructures.add(path);
     }
     
@@ -323,19 +330,19 @@ export function apply(input: unknown, operations: DiffOperation[]): unknown {
           originalStructures.add(currentPath + '.');
         }
         currentPath += char;
-      } else if (char === '[') {
+      } else if (char === '@') {
         // Found an array index start
         if (currentPath !== '') {
-          originalStructures.add(currentPath + '[]');
+          originalStructures.add(currentPath + '@');
         }
-        // Skip to the closing bracket
-        while (i < path.length && path[i] !== ']') {
+        // Skip to the end of the number
+        currentPath += char;
+        i++;
+        while (i < path.length && /\d/.test(path[i])) {
           currentPath += path[i];
           i++;
         }
-        if (i < path.length) {
-          currentPath += path[i]; // Add the closing ]
-        }
+        i--; // Back up one since the loop will increment
       } else {
         currentPath += char;
       }
@@ -344,12 +351,27 @@ export function apply(input: unknown, operations: DiffOperation[]): unknown {
     }
   }
   
+  // Handle conflicts between empty markers and actual content
+  // Remove empty markers when there are actual properties/elements
+  for (const [path] of pathMap.entries()) {
+    if (path.endsWith('@') || path.endsWith('.')) {
+      const prefix = path.slice(0, -1); // Remove the trailing marker
+      const hasProperties = Array.from(pathMap.keys()).some(p => 
+        p !== path && p.startsWith(prefix) && (p.includes('.') || p.includes('@'))
+      );
+      
+      if (hasProperties) {
+        pathMap.delete(path); // Remove empty marker when there are actual elements
+      }
+    }
+  }
+  
   // Add empty markers for structures that existed in input but have no properties after operations
   for (const structurePath of originalStructures) {
-    if (structurePath.endsWith('.') || structurePath.endsWith('[]')) {
+    if (structurePath.endsWith('.') || structurePath.endsWith('@')) {
       const prefix = structurePath.slice(0, -1); // Remove the trailing marker
       const hasProperties = Array.from(pathMap.keys()).some(p => 
-        p !== structurePath && p.startsWith(prefix) && (p.includes('.') || p.includes('['))
+        p !== structurePath && p.startsWith(prefix) && (p.includes('.') || p.includes('@'))
       );
       
       if (!hasProperties && !pathMap.has(structurePath)) {
