@@ -190,7 +190,7 @@ function getType(value: unknown): 'null' | 'array' | 'object' | 'primitive' {
   return 'primitive';
 }
 
-export function diff(a: unknown, b: unknown, path: string = ''): DiffOperation[] {
+export function diff(a: unknown, b: unknown, path: string = '', arrayReplace: boolean = false): DiffOperation[] {
   const operations: DiffOperation[] = [];
 
   // Handle undefined by converting to marker
@@ -261,7 +261,7 @@ export function diff(a: unknown, b: unknown, path: string = ''): DiffOperation[]
         });
       } else if (inA && inB) {
         // Keys in both - recurse
-        operations.push(...diff(objA[key], objB[key], newPath));
+        operations.push(...diff(objA[key], objB[key], newPath, arrayReplace));
       }
     }
 
@@ -272,6 +272,17 @@ export function diff(a: unknown, b: unknown, path: string = ''): DiffOperation[]
   if (typeA === 'array') {
     const arrA = processedA as unknown[];
     const arrB = processedB as unknown[];
+
+    // If arrayReplace is true and lengths differ, replace entire array
+    if (arrayReplace && arrA.length !== arrB.length) {
+      const finalPath = path === '' ? '' : path;
+      operations.push({
+        type: 'set',
+        path: finalPath,
+        value: restoreUndefined(processedB)
+      });
+      return operations;
+    }
 
     // Simple strategy: compare element by element
     const maxLen = Math.max(arrA.length, arrB.length);
@@ -299,7 +310,7 @@ export function diff(a: unknown, b: unknown, path: string = ''): DiffOperation[]
         });
       } else {
         // Both exist - recurse
-        operations.push(...diff(arrA[i], arrB[i], newPath));
+        operations.push(...diff(arrA[i], arrB[i], newPath, arrayReplace));
       }
     }
 
@@ -328,11 +339,32 @@ export function apply(input: unknown, operations: DiffOperation[]): unknown {
       case 'add':
         pathMap.set(operation.path, replaceUndefined(operation.value));
         break;
-      
+
       case 'set':
-        pathMap.set(operation.path, replaceUndefined(operation.value));
+        // First, remove all child paths that start with this path
+        const pathsToRemoveForSet: string[] = [];
+        for (const [existingPath] of pathMap.entries()) {
+          if (existingPath === operation.path ||
+              existingPath.startsWith(operation.path + '.') ||
+              existingPath.startsWith(operation.path + '@')) {
+            pathsToRemoveForSet.push(existingPath);
+          }
+        }
+
+        for (const pathToRemove of pathsToRemoveForSet) {
+          pathMap.delete(pathToRemove);
+        }
+
+        // Then, flatten the new value and add all its paths
+        const flatValue = flat(replaceUndefined(operation.value));
+        for (const entry of flatValue) {
+          const [subPath, value] = Object.entries(entry)[0];
+          const fullPath = subPath === '' ? operation.path :
+                          operation.path === '' ? subPath : `${operation.path}${subPath}`;
+          pathMap.set(fullPath, value);
+        }
         break;
-      
+
       case 'remove':
         // Remove the path itself
         pathMap.delete(operation.path);

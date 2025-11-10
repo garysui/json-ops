@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg)](https://www.typescriptlang.org/)
 [![Bundle Size](https://img.shields.io/bundlephobia/minzip/@garysui/json-ops)](https://bundlephobia.com/package/@garysui/json-ops)
-[![Test Coverage](https://img.shields.io/badge/tests-104%20passing-brightgreen.svg)](https://github.com/garysui/json-ops)
+[![Test Coverage](https://img.shields.io/badge/tests-119%20passing-brightgreen.svg)](https://github.com/garysui/json-ops)
 
 This utility provides a powerful, deterministic way to:
 
@@ -120,6 +120,33 @@ diff({ x: {} }, { x: { y: 1 } })
 // (optimized: does not redundantly remove `x` then add again)
 ```
 
+#### Array Diff Modes
+
+By default, arrays are compared element-by-element:
+
+```ts
+diff([1, 2, 3], [1, 2, 4, 5])
+// → [
+//   { type: 'set', path: '@2', value: 4 },
+//   { type: 'add', path: '@3', value: 5 }
+// ]
+```
+
+Set `arrayReplace: true` to replace entire arrays when their lengths differ:
+
+```ts
+diff([1, 2, 3], [1, 2, 4, 5], '', true)
+// → [ { type: 'set', path: '', value: [1, 2, 4, 5] } ]
+// Single operation instead of multiple element changes
+```
+
+This is useful when:
+- Arrays represent atomic values (e.g., tags, permissions)
+- You want simpler, more efficient diff operations
+- Array order is significant and individual changes aren't meaningful
+
+**Note**: When arrays have the same length, element-by-element comparison is used regardless of the `arrayReplace` setting.
+
 ---
 
 ### 5. **Apply a diff**
@@ -186,10 +213,15 @@ replaceUndefined(obj): SafeObject
 restoreUndefined(obj): OriginalObject
 flat(obj): FlatEntry[]
 unflat(entries: FlatEntry[]): OriginalObject
-diff(a, b): DiffOperation[]
+diff(a, b, path?, arrayReplace?): DiffOperation[]
 apply(obj, diff): NewObject
 sortKeys(obj): SortedObject
 ```
+
+**Parameters:**
+- `diff(a, b, path = '', arrayReplace = false)`: Compare objects with optional array replacement mode
+  - `path`: Internal recursion path (usually omit for top-level calls)
+  - `arrayReplace`: When `true`, replaces entire arrays if lengths differ instead of element-by-element diff
 
 ---
 
@@ -213,6 +245,39 @@ npm install @garysui/json-ops
 **Requirements:**
 - Node.js 14+
 - TypeScript 4.0+ (for TypeScript projects)
+
+---
+
+## 🧪 Testing
+
+The project includes a comprehensive test suite with 119 tests organized into logical modules:
+
+```bash
+# Run all tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Run specific test suites
+npm run test:flat-unflat      # Flatten/unflatten operations (18 tests)
+npm run test:diff             # Diff operations (24 tests)
+npm run test:apply            # Apply operations (19 tests)
+npm run test:real-world       # Real-world use cases (5 tests)
+npm run test:flat-path        # Path notation tests (19 tests)
+npm run test:edge-cases       # Edge cases & complex structures (21 tests)
+npm run test:array-replace    # Array replace mode (13 tests)
+```
+
+**Test Organization:**
+- `test/flat-unflat.test.ts` - Core flatten/unflatten functionality
+- `test/diff.test.ts` - Object comparison and diff generation
+- `test/apply.test.ts` - Applying operations and round-trips
+- `test/real-world.test.ts` - Database ops, configs, forms
+- `test/flat-path-notation.test.ts` - Path notation specification
+- `test/edge-cases.test.ts` - Deep nesting, large structures, performance
+- `test/array-replace.test.ts` - Array replacement mode tests
+- `test/fixtures.ts` - Shared test data
 
 ---
 
@@ -262,7 +327,7 @@ SOFTWARE.
 - **Bundle size**: ~8KB minified
 - **Dependencies**: Zero runtime dependencies
 - **TypeScript**: Full type definitions included
-- **Tests**: 104+ test cases covering edge cases and real-world scenarios
+- **Tests**: 119 test cases covering edge cases and real-world scenarios
 
 ---
 

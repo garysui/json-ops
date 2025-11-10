@@ -1,6 +1,6 @@
 {
   "name": "@garysui/json-ops",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "description": "TypeScript utilities for JSON operations: flatten, diff, apply, and more",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -8,6 +8,13 @@
     "build": "tsc",
     "test": "jest",
     "test:watch": "jest --watch",
+    "test:flat-unflat": "jest test/flat-unflat.test.ts",
+    "test:diff": "jest test/diff.test.ts",
+    "test:apply": "jest test/apply.test.ts",
+    "test:real-world": "jest test/real-world.test.ts",
+    "test:flat-path": "jest test/flat-path-notation.test.ts",
+    "test:edge-cases": "jest test/edge-cases.test.ts",
+    "test:array-replace": "jest test/array-replace.test.ts",
     "prepublishOnly": "npm run build && npm test"
   },
   "keywords": ["json", "utilities", "typescript", "flatten", "diff", "transform", "object-manipulation"],
