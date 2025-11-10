@@ -1,7 +1,7 @@
 import { flat, replaceUndefined, restoreUndefined, unflat, diff, apply, sortKeys } from './index';
 
 const examples = [
-  {a: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], b: 0},
+  { a: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], b: 0 },
   undefined,
   '', 'asdf', 0, false, null,
   [],
@@ -61,6 +61,39 @@ describe('flat, unflat', () => {
 });
 
 describe('diff', () => {
+  describe('nested properties', () => {
+    it('should handle nested property changes', () => {
+      const a = { x: 1, y: { a: 1, b: 2 } };
+      const b = { x: 1, y: {} };
+      const c = { x: 1 };
+      const resultB = diff(a, b);
+      const resultC = diff(a, c);
+      expect(resultB).toEqual([
+        { type: 'remove', path: '.y.a' },
+        { type: 'remove', path: '.y.b' }
+      ]);
+      expect(resultC).toEqual([
+        { type: 'remove', path: '.y' }
+      ]);
+    });
+
+    it('should handle nested property changes', () => {
+      const a = { x: 1, y: [1, 2] };
+      const b = { x: 1, y: [] };
+      const c = { x: 1 };
+      const resultB = diff(a, b);
+      const resultC = diff(a, c);
+      expect(resultB).toEqual([
+        { type: 'remove', path: '.y@0' },
+        { type: 'remove', path: '.y@1' },
+      ]);
+      expect(resultC).toEqual([
+        { type: 'remove', path: '.y' }
+      ]);
+    });
+  });
+
+
 
   describe('simple object differences', () => {
     it('should detect value changes', () => {
@@ -278,7 +311,7 @@ describe('diff', () => {
         metadata: { created: '2023-01-01' }
       };
       const result = diff(a, b);
-      
+
       // Should contain operations for all the changes
       expect(result.length).toBeGreaterThan(0);
       expect(result.some(op => op.path === '.users@0.name' && op.type === 'set')).toBe(true);
@@ -334,8 +367,8 @@ describe('apply', () => {
         { type: 'add' as const, path: '.user.city', value: 'NYC' }
       ];
       const result = apply(input, operations);
-      expect(sortKeys(result)).toEqual(sortKeys({ 
-        user: { name: 'Jane', age: 30, city: 'NYC' } 
+      expect(sortKeys(result)).toEqual(sortKeys({
+        user: { name: 'Jane', age: 30, city: 'NYC' }
       }));
     });
 
@@ -415,28 +448,28 @@ describe('apply', () => {
   describe('diff -> apply round trips', () => {
     const testCases = [
       { name: 'simple objects', a: { x: 1, y: 2 }, b: { x: 1, y: 3, z: 4 } },
-      { 
-        name: 'nested objects', 
-        a: { user: { name: 'John', age: 30 } }, 
-        b: { user: { name: 'Jane', age: 30, city: 'NYC' } } 
+      {
+        name: 'nested objects',
+        a: { user: { name: 'John', age: 30 } },
+        b: { user: { name: 'Jane', age: 30, city: 'NYC' } }
       },
-      { 
-        name: 'arrays', 
-        a: { items: [1, 2, 3] }, 
-        b: { items: [1, 4, 3, 5] } 
+      {
+        name: 'arrays',
+        a: { items: [1, 2, 3] },
+        b: { items: [1, 4, 3, 5] }
       },
-      { 
-        name: 'empty to filled', 
-        a: { obj: {}, arr: [] }, 
-        b: { obj: { x: 1 }, arr: [1, 2] } 
+      {
+        name: 'empty to filled',
+        a: { obj: {}, arr: [] },
+        b: { obj: { x: 1 }, arr: [1, 2] }
       },
-      { 
-        name: 'filled to empty', 
-        a: { obj: { x: 1 }, arr: [1, 2] }, 
-        b: { obj: {}, arr: [] } 
+      {
+        name: 'filled to empty',
+        a: { obj: { x: 1 }, arr: [1, 2] },
+        b: { obj: {}, arr: [] }
       },
-      { 
-        name: 'complex mixed', 
+      {
+        name: 'complex mixed',
         a: { x: { nested: true }, y: 'hello', z: [1, { a: 1, b: 2 }] },
         b: { x: { nested: false, new: 'field' }, y: 'world', z: [1, { a: 1, b: 2, c: 3 }], w: 42 }
       },
@@ -480,7 +513,7 @@ describe('Real-world Use Cases', () => {
         },
         permissions: ['read', 'write']
       };
-      
+
       const newProfile = {
         id: 123,
         email: 'john.doe@example.com',
@@ -496,11 +529,11 @@ describe('Real-world Use Cases', () => {
         },
         permissions: ['read', 'write', 'admin']
       };
-      
+
       const operations = diff(oldProfile, newProfile);
       const result = apply(oldProfile, operations);
       expect(sortKeys(result)).toEqual(sortKeys(newProfile));
-      
+
       // Verify specific operations we expect
       expect(operations.some(op => op.path === '.email' && op.type === 'set')).toBe(true);
       expect(operations.some(op => op.path === '.profile.lastName' && op.type === 'set')).toBe(true);
@@ -516,7 +549,7 @@ describe('Real-world Use Cases', () => {
         ],
         lastUpdated: '2023-01-01'
       };
-      
+
       const newInventory = {
         warehouse: 'A',
         items: [
@@ -526,7 +559,7 @@ describe('Real-world Use Cases', () => {
         ],
         lastUpdated: '2023-01-02'
       };
-      
+
       const operations = diff(oldInventory, newInventory);
       const result = apply(oldInventory, operations);
       expect(sortKeys(result)).toEqual(sortKeys(newInventory));
@@ -554,7 +587,7 @@ describe('Real-world Use Cases', () => {
           destinations: ['console']
         }
       };
-      
+
       const newConfig = {
         app: {
           name: 'MyApp',
@@ -580,7 +613,7 @@ describe('Real-world Use Cases', () => {
           ttl: 3600
         }
       };
-      
+
       const operations = diff(oldConfig, newConfig);
       const result = apply(oldConfig, operations);
       expect(sortKeys(result)).toEqual(sortKeys(newConfig));
@@ -603,7 +636,7 @@ describe('Real-world Use Cases', () => {
         preferences: [],
         agreedToTerms: false
       };
-      
+
       const filledForm = {
         personalInfo: {
           name: 'Alice Johnson',
@@ -619,11 +652,11 @@ describe('Real-world Use Cases', () => {
         preferences: ['newsletter', 'promotions'],
         agreedToTerms: true
       };
-      
+
       const operations = diff(initialForm, filledForm);
       const result = apply(initialForm, operations);
       expect(sortKeys(result)).toEqual(sortKeys(filledForm));
-      
+
       // Should track each field change
       expect(operations.length).toBeGreaterThan(6);
     });
@@ -648,7 +681,7 @@ describe('Real-world Use Cases', () => {
           version: '1.0'
         }
       };
-      
+
       const newResponse = {
         data: {
           users: [
@@ -667,7 +700,7 @@ describe('Real-world Use Cases', () => {
           version: '1.0'
         }
       };
-      
+
       const operations = diff(oldResponse, newResponse);
       const result = apply(oldResponse, operations);
       expect(sortKeys(result)).toEqual(sortKeys(newResponse));
@@ -682,10 +715,10 @@ describe('Flat Path Notation Specification', () => {
     it('should detect primitive at root (empty path)', () => {
       const flattened = flat(42);
       expect(flattened).toEqual([{ "": 42 }]);
-      
+
       const flattened2 = flat("hello");
       expect(flattened2).toEqual([{ "": "hello" }]);
-      
+
       const flattened3 = flat(null);
       expect(flattened3).toEqual([{ "": null }]);
     });
@@ -693,7 +726,7 @@ describe('Flat Path Notation Specification', () => {
     it('should detect object at root (dot path)', () => {
       const flattened = flat({});
       expect(flattened).toEqual([{ ".": {} }]);
-      
+
       const flattened2 = flat({ x: 1, y: 2 });
       expect(flattened2).toEqual([{ ".x": 1 }, { ".y": 2 }]);
     });
@@ -701,7 +734,7 @@ describe('Flat Path Notation Specification', () => {
     it('should detect array at root (@ path)', () => {
       const flattened = flat([]);
       expect(flattened).toEqual([{ "@": [] }]);
-      
+
       const flattened2 = flat([1, 2, 3]);
       expect(flattened2).toEqual([{ "@0": 1 }, { "@1": 2 }, { "@2": 3 }]);
     });
@@ -789,8 +822,8 @@ describe('Flat Path Notation Specification', () => {
     it('should handle complex mixed paths (.a@0.b)', () => {
       const data = {
         groups: [
-          { 
-            name: "Group1", 
+          {
+            name: "Group1",
             members: [
               { id: 1, name: "Alice" },
               { id: 2, name: "Bob" }
@@ -824,7 +857,7 @@ describe('Flat Path Notation Specification', () => {
       };
 
       const flattened = flat(input);
-      
+
       // Should contain all expected paths
       expect(flattened).toEqual(expect.arrayContaining([
         { ".user.name": "Alice" },
@@ -833,7 +866,7 @@ describe('Flat Path Notation Specification', () => {
         { ".user.profile.age": 30 },
         { ".user.profile.preferences@": [] }
       ]));
-      
+
       // Verify round-trip
       const unflattened = unflat(flattened);
       expect(sortKeys(unflattened)).toEqual(sortKeys(input));
@@ -845,7 +878,7 @@ describe('Flat Path Notation Specification', () => {
       const data = { emptyObj: {} };
       const flattened = flat(data);
       expect(flattened).toEqual([{ ".emptyObj.": {} }]);
-      
+
       const unflattened = unflat(flattened);
       expect(unflattened).toEqual(data);
     });
@@ -854,7 +887,7 @@ describe('Flat Path Notation Specification', () => {
       const data = { emptyArr: [] };
       const flattened = flat(data);
       expect(flattened).toEqual([{ ".emptyArr@": [] }]);
-      
+
       const unflattened = unflat(flattened);
       expect(unflattened).toEqual(data);
     });
@@ -941,7 +974,7 @@ describe('Edge Cases and Complex Structures', () => {
       for (let i = 0; i < 100; i++) {
         wideObj[`key${i}`] = `value${i}`;
       }
-      
+
       const flattened = flat(wideObj);
       const unflattened = unflat(flattened);
       expect(sortKeys(unflattened)).toEqual(sortKeys(wideObj));
@@ -950,7 +983,7 @@ describe('Edge Cases and Complex Structures', () => {
 
     it('should handle large arrays', () => {
       const largeArray = Array.from({ length: 1000 }, (_, i) => i);
-      
+
       const flattened = flat(largeArray);
       const unflattened = unflat(flattened);
       expect(unflattened).toEqual(largeArray);
@@ -967,7 +1000,7 @@ describe('Edge Cases and Complex Structures', () => {
         '123numeric': 'value6',
         'emptykey': 'empty key value'
       };
-      
+
       const flattened = flat(specialObj);
       const unflattened = unflat(flattened);
       expect(sortKeys(unflattened)).toEqual(sortKeys(specialObj));
@@ -986,7 +1019,7 @@ describe('Edge Cases and Complex Structures', () => {
         big_number: Number.MAX_SAFE_INTEGER,
         small_number: Number.MIN_SAFE_INTEGER
       };
-      
+
       const flattened = flat(mixedTypes);
       const unflattened = unflat(flattened);
       expect(sortKeys(unflattened)).toEqual(sortKeys(mixedTypes));
@@ -998,7 +1031,7 @@ describe('Edge Cases and Complex Structures', () => {
       const flattened = flat(treated);
       const unflattened = unflat(flattened);
       const restored = restoreUndefined(unflattened) as any[];
-      
+
       // Check that the structure is preserved
       expect(restored.length).toBe(6);
       expect(restored[0]).toBe(1);
@@ -1046,7 +1079,7 @@ describe('Edge Cases and Complex Structures', () => {
       };
 
       const oldConfig = JSON.parse(JSON.stringify(microserviceConfig));
-      
+
       // Simulate config changes
       const newConfig = JSON.parse(JSON.stringify(microserviceConfig));
       newConfig.services.auth.environment.LOG_LEVEL = 'info';
@@ -1056,16 +1089,16 @@ describe('Edge Cases and Complex Structures', () => {
         ports: ['9090:9090'],
         dependencies: []
       };
-      
+
       const operations = diff(oldConfig, newConfig);
       const result = apply(oldConfig, operations);
       expect(sortKeys(result)).toEqual(sortKeys(newConfig));
-      
+
       // Should track specific changes
-      expect(operations.some(op => 
+      expect(operations.some(op =>
         op.path === '.services.auth.environment.LOG_LEVEL' && op.type === 'set'
       )).toBe(true);
-      expect(operations.some(op => 
+      expect(operations.some(op =>
         op.path === '.services.api.environment.RATE_LIMIT' && op.type === 'add'
       )).toBe(true);
     });
@@ -1135,17 +1168,17 @@ describe('Edge Cases and Complex Structures', () => {
     it('should handle objects with many small changes efficiently', () => {
       const baseObj: any = {};
       const modifiedObj: any = {};
-      
+
       // Create 50 properties that will be changed
       for (let i = 0; i < 50; i++) {
         baseObj[`prop${i}`] = i;
         modifiedObj[`prop${i}`] = i + 1; // Each property changes
       }
-      
+
       const operations = diff(baseObj, modifiedObj);
       expect(operations.length).toBe(50); // Should generate exactly 50 operations
       expect(operations.every(op => op.type === 'set')).toBe(true);
-      
+
       const result = apply(baseObj, operations);
       expect(sortKeys(result)).toEqual(sortKeys(modifiedObj));
     });
@@ -1156,23 +1189,23 @@ describe('Edge Cases and Complex Structures', () => {
         modify: { old: 'value' },
         remove: { will: 'be deleted' }
       };
-      
+
       const newData = {
         keep: { same: 'value' },
         modify: { new: 'value' },
         add: { fresh: 'data' }
       };
-      
+
       const operations = diff(oldData, newData);
       const result = apply(oldData, operations);
-      
+
       // Check that the result has the expected structure (remove may leave empty object)
       expect((result as any).keep).toEqual(newData.keep);
       expect((result as any).modify).toEqual(newData.modify);
       expect((result as any).add).toEqual(newData.add);
       // Remove operation may leave empty object structure rather than removing the key
       expect((result as any).remove).toEqual({});
-      
+
       // Verify operation types are present
       expect(operations.some(op => op.type === 'add')).toBe(true);
       expect(operations.some(op => op.type === 'remove')).toBe(true);

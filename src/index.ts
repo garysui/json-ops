@@ -178,100 +178,134 @@ export function sortKeys(obj: unknown): unknown {
   return result;
 }
 
-type DiffOperation = 
+type DiffOperation =
   | { type: 'add'; path: string; value: unknown }
   | { type: 'remove'; path: string }
   | { type: 'set'; path: string; value: unknown };
 
-export function diff(a: unknown, b: unknown): DiffOperation[] {
-  // Step 1: Sort keys for both objects
-  const sortedA = sortKeys(a);
-  const sortedB = sortKeys(b);
-  
-  // Step 2: Flatten both sorted objects
-  const flatA = flat(replaceUndefined(sortedA));
-  const flatB = flat(replaceUndefined(sortedB));
-  
-  // Step 3: Convert to maps for easier comparison
-  const mapA = new Map<string, unknown>();
-  const mapB = new Map<string, unknown>();
-  
-  for (const entry of flatA) {
-    const [path, value] = Object.entries(entry)[0];
-    mapA.set(path, value);
-  }
-  
-  for (const entry of flatB) {
-    const [path, value] = Object.entries(entry)[0];
-    mapB.set(path, value);
-  }
-  
-  // Step 4: Compare and generate operations with optimizations
+function getType(value: unknown): 'null' | 'array' | 'object' | 'primitive' {
+  if (value === null) return 'null';
+  if (Array.isArray(value)) return 'array';
+  if (typeof value === 'object') return 'object';
+  return 'primitive';
+}
+
+export function diff(a: unknown, b: unknown, path: string = ''): DiffOperation[] {
   const operations: DiffOperation[] = [];
-  const allPaths = new Set([...mapA.keys(), ...mapB.keys()]);
-  
-  // Detect transitions to optimize operations
-  const emptyToFilledOptimizations = new Set<string>();
-  const filledToEmptyOptimizations = new Set<string>();
-  
-  for (const path of allPaths) {
-    // Check if this is an empty object/array marker being removed while properties are added
-    if (path.endsWith('.') || path.endsWith('@')) {
-      const prefix = path.slice(0, -1); // Remove the trailing marker
-      const hasRemovedEmpty = mapA.has(path) && !mapB.has(path);
-      const hasAddedEmpty = !mapA.has(path) && mapB.has(path);
-      const hasAddedProperties = Array.from(mapB.keys()).some(p => 
-        p !== path && p.startsWith(prefix) && !mapA.has(p)
-      );
-      const hasRemovedProperties = Array.from(mapA.keys()).some(p => 
-        p !== path && p.startsWith(prefix) && !mapB.has(p)
-      );
-      
-      // Empty-to-filled: skip removing empty marker when adding properties
-      if (hasRemovedEmpty && hasAddedProperties) {
-        emptyToFilledOptimizations.add(path);
-      }
-      
-      // Filled-to-empty: skip adding empty marker when removing all properties
-      if (hasAddedEmpty && hasRemovedProperties && !hasAddedProperties) {
-        filledToEmptyOptimizations.add(path);
-      }
-    }
+
+  // Handle undefined by converting to marker
+  const processedA = replaceUndefined(a);
+  const processedB = replaceUndefined(b);
+
+  const typeA = getType(processedA);
+  const typeB = getType(processedB);
+
+  // If types are different, use SET operation
+  if (typeA !== typeB) {
+    const finalPath = path === '' ? '' : path;
+    operations.push({
+      type: 'set',
+      path: finalPath,
+      value: restoreUndefined(processedB)
+    });
+    return operations;
   }
-  
-  for (const path of Array.from(allPaths).sort()) {
-    // Skip empty markers that are being optimized away
-    if (emptyToFilledOptimizations.has(path) || filledToEmptyOptimizations.has(path)) {
-      continue;
-    }
-    
-    const valueA = mapA.get(path);
-    const valueB = mapB.get(path);
-    
-    if (valueA === undefined && valueB !== undefined) {
-      // Path exists in B but not in A - ADD
-      operations.push({
-        type: 'add',
-        path,
-        value: restoreUndefined(valueB)
-      });
-    } else if (valueA !== undefined && valueB === undefined) {
-      // Path exists in A but not in B - REMOVE
-      operations.push({
-        type: 'remove',
-        path
-      });
-    } else if (valueA !== undefined && valueB !== undefined && valueA !== valueB) {
-      // Path exists in both but with different values - SET
+
+  // Both are primitives or null
+  if (typeA === 'primitive' || typeA === 'null') {
+    if (processedA !== processedB) {
+      const finalPath = path === '' ? '' : path;
       operations.push({
         type: 'set',
-        path,
-        value: restoreUndefined(valueB)
+        path: finalPath,
+        value: restoreUndefined(processedB)
       });
     }
-    // If valueA === valueB, no operation needed
+    return operations;
   }
-  
+
+  // Both are objects (not arrays)
+  if (typeA === 'object') {
+    const objA = processedA as Record<string, unknown>;
+    const objB = processedB as Record<string, unknown>;
+
+    const keysA = new Set(Object.keys(objA));
+    const keysB = new Set(Object.keys(objB));
+
+    // Get all unique keys sorted
+    const allKeys = new Set([...keysA, ...keysB]);
+    const sortedKeys = Array.from(allKeys).sort();
+
+    for (const key of sortedKeys) {
+      const inA = keysA.has(key);
+      const inB = keysB.has(key);
+      const newPath = path === '' ? `.${key}` : `${path}.${key}`;
+
+      if (!inA && inB) {
+        // Key in B but not in A - ADD
+        const flatValue = flat(replaceUndefined(objB[key]));
+        for (const entry of flatValue) {
+          const [subPath, value] = Object.entries(entry)[0];
+          const fullPath = subPath === '' ? newPath : `${newPath}${subPath}`;
+          operations.push({
+            type: 'add',
+            path: fullPath,
+            value: restoreUndefined(value)
+          });
+        }
+      } else if (inA && !inB) {
+        // Key in A but not in B - REMOVE
+        operations.push({
+          type: 'remove',
+          path: newPath
+        });
+      } else if (inA && inB) {
+        // Keys in both - recurse
+        operations.push(...diff(objA[key], objB[key], newPath));
+      }
+    }
+
+    return operations;
+  }
+
+  // Both are arrays
+  if (typeA === 'array') {
+    const arrA = processedA as unknown[];
+    const arrB = processedB as unknown[];
+
+    // Simple strategy: compare element by element
+    const maxLen = Math.max(arrA.length, arrB.length);
+
+    for (let i = 0; i < maxLen; i++) {
+      const newPath = path === '' ? `@${i}` : `${path}@${i}`;
+
+      if (i >= arrA.length) {
+        // Element exists in B but not in A - ADD
+        const flatValue = flat(replaceUndefined(arrB[i]));
+        for (const entry of flatValue) {
+          const [subPath, value] = Object.entries(entry)[0];
+          const fullPath = subPath === '' ? newPath : `${newPath}${subPath}`;
+          operations.push({
+            type: 'add',
+            path: fullPath,
+            value: restoreUndefined(value)
+          });
+        }
+      } else if (i >= arrB.length) {
+        // Element exists in A but not in B - REMOVE
+        operations.push({
+          type: 'remove',
+          path: newPath
+        });
+      } else {
+        // Both exist - recurse
+        operations.push(...diff(arrA[i], arrB[i], newPath));
+      }
+    }
+
+    return operations;
+  }
+
   return operations;
 }
 
@@ -300,7 +334,21 @@ export function apply(input: unknown, operations: DiffOperation[]): unknown {
         break;
       
       case 'remove':
+        // Remove the path itself
         pathMap.delete(operation.path);
+
+        // Also remove all child paths that start with this path
+        const pathsToRemove: string[] = [];
+        for (const [existingPath] of pathMap.entries()) {
+          if (existingPath.startsWith(operation.path + '.') ||
+              existingPath.startsWith(operation.path + '@')) {
+            pathsToRemove.push(existingPath);
+          }
+        }
+
+        for (const pathToRemove of pathsToRemove) {
+          pathMap.delete(pathToRemove);
+        }
         break;
     }
   }
