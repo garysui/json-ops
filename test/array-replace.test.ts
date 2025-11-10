@@ -5,7 +5,7 @@ import { diff, apply, sortKeys } from '../src/index';
       it('should generate element-by-element operations when arrayReplace is false', () => {
         const a = [1, 2, 3];
         const b = [1, 2, 4, 5];
-        const operations = diff(a, b, '', false);
+        const operations = diff(a, b, false);
 
         expect(operations.length).toBe(2);
         expect(operations[0]).toEqual({ type: 'set', path: '@2', value: 4 });
@@ -15,7 +15,7 @@ import { diff, apply, sortKeys } from '../src/index';
       it('should replace entire array when lengths differ and arrayReplace is true', () => {
         const a = [1, 2, 3];
         const b = [1, 2, 4, 5];
-        const operations = diff(a, b, '', true);
+        const operations = diff(a, b, true);
 
         expect(operations.length).toBe(1);
         expect(operations[0]).toEqual({ type: 'set', path: '', value: [1, 2, 4, 5] });
@@ -27,7 +27,7 @@ import { diff, apply, sortKeys } from '../src/index';
       it('should still do element-by-element when same length with arrayReplace true', () => {
         const a = [1, 2, 3];
         const b = [1, 2, 4];
-        const operations = diff(a, b, '', true);
+        const operations = diff(a, b, true);
 
         expect(operations.length).toBe(1);
         expect(operations[0]).toEqual({ type: 'set', path: '@2', value: 4 });
@@ -39,7 +39,7 @@ import { diff, apply, sortKeys } from '../src/index';
       it('should replace nested arrays when arrayReplace is true', () => {
         const a = { items: [1, 2, 3], name: 'test' };
         const b = { items: [1, 2, 3, 4, 5], name: 'test' };
-        const operations = diff(a, b, '', true);
+        const operations = diff(a, b, true);
 
         expect(operations.length).toBe(1);
         expect(operations[0]).toEqual({
@@ -55,7 +55,7 @@ import { diff, apply, sortKeys } from '../src/index';
       it('should not replace nested arrays when arrayReplace is false', () => {
         const a = { items: [1, 2, 3], name: 'test' };
         const b = { items: [1, 2, 3, 4, 5], name: 'test' };
-        const operations = diff(a, b, '', false);
+        const operations = diff(a, b, false);
 
         expect(operations.length).toBe(2);
         expect(operations[0]).toEqual({ type: 'add', path: '.items@3', value: 4 });
@@ -68,7 +68,7 @@ import { diff, apply, sortKeys } from '../src/index';
       it('should replace arrays that shrink when arrayReplace is true', () => {
         const a = [1, 2, 3, 4, 5];
         const b = [1, 2];
-        const operations = diff(a, b, '', true);
+        const operations = diff(a, b, true);
 
         expect(operations.length).toBe(1);
         expect(operations[0]).toEqual({ type: 'set', path: '', value: [1, 2] });
@@ -88,7 +88,7 @@ import { diff, apply, sortKeys } from '../src/index';
             values: [1, 2, 3, 4]
           }
         };
-        const operations = diff(a, b, '', true);
+        const operations = diff(a, b, true);
 
         expect(operations.length).toBe(1);
         expect(operations[0]).toEqual({
@@ -104,7 +104,7 @@ import { diff, apply, sortKeys } from '../src/index';
       it('should replace arrays of objects when arrayReplace is true', () => {
         const a = [{ id: 1 }, { id: 2 }];
         const b = [{ id: 1 }, { id: 2 }, { id: 3 }];
-        const operations = diff(a, b, '', true);
+        const operations = diff(a, b, true);
 
         expect(operations.length).toBe(1);
         expect(operations[0].type).toBe('set');
@@ -123,7 +123,7 @@ import { diff, apply, sortKeys } from '../src/index';
           users: [{ name: 'Alice' }, { name: 'Bob' }, { name: 'Charlie' }],
           count: 3
         };
-        const operations = diff(a, b, '', true);
+        const operations = diff(a, b, true);
 
         // Should have 2 operations: one to replace the array, one to set count
         expect(operations.some(op => op.path === '.users' && op.type === 'set')).toBe(true);
@@ -136,7 +136,7 @@ import { diff, apply, sortKeys } from '../src/index';
       it('should handle empty arrays with arrayReplace', () => {
         const a = [1, 2, 3];
         const b: number[] = [];
-        const operations = diff(a, b, '', true);
+        const operations = diff(a, b, true);
 
         expect(operations.length).toBe(1);
         expect(operations[0]).toEqual({ type: 'set', path: '', value: [] });
@@ -148,7 +148,7 @@ import { diff, apply, sortKeys } from '../src/index';
       it('should handle array to non-array with arrayReplace', () => {
         const a = { value: [1, 2, 3] };
         const b = { value: 'not an array' };
-        const operations = diff(a, b, '', true);
+        const operations = diff(a, b, true);
 
         expect(operations.length).toBe(1);
         expect(operations[0]).toEqual({ type: 'set', path: '.value', value: 'not an array' });
@@ -163,7 +163,7 @@ import { diff, apply, sortKeys } from '../src/index';
         const a = { items: [1, 2], other: 'data' };
         const b = { items: [1, 2, 3, 4, 5], other: 'data' };
 
-        const operations = diff(a, b, '', true);
+        const operations = diff(a, b, true);
         const result = apply(a, operations);
 
         expect(sortKeys(result)).toEqual(sortKeys(b));
@@ -181,7 +181,7 @@ import { diff, apply, sortKeys } from '../src/index';
           arr3: [5, 6, 7, 8]
         };
 
-        const operations = diff(a, b, '', true);
+        const operations = diff(a, b, true);
         const result = apply(a, operations);
 
         expect(sortKeys(result)).toEqual(sortKeys(b));

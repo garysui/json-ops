@@ -135,7 +135,7 @@ diff([1, 2, 3], [1, 2, 4, 5])
 Set `arrayReplace: true` to replace entire arrays when their lengths differ:
 
 ```ts
-diff([1, 2, 3], [1, 2, 4, 5], '', true)
+diff([1, 2, 3], [1, 2, 4, 5], true)
 // → [ { type: 'set', path: '', value: [1, 2, 4, 5] } ]
 // Single operation instead of multiple element changes
 ```
@@ -206,22 +206,136 @@ type DiffOperation =
 
 ---
 
-## 📁 Exports
+## 📁 API Reference
+
+### Core Functions
+
+#### `replaceUndefined(obj: T): T`
+Replaces all `undefined` values in an object with the marker string `"__UNDEFINED__"`.
+
+**Why:** JavaScript JSON serialization strips `undefined` values. This function preserves them by converting to a safe marker.
 
 ```ts
-replaceUndefined(obj): SafeObject
-restoreUndefined(obj): OriginalObject
-flat(obj): FlatEntry[]
-unflat(entries: FlatEntry[]): OriginalObject
-diff(a, b, path?, arrayReplace?): DiffOperation[]
-apply(obj, diff): NewObject
-sortKeys(obj): SortedObject
+replaceUndefined({ a: 1, b: undefined })
+// → { a: 1, b: "__UNDEFINED__" }
 ```
 
+---
+
+#### `restoreUndefined(obj: T): T | undefined`
+Restores all `"__UNDEFINED__"` markers back to actual `undefined` values.
+
+**Use with:** Call after `unflat()` to restore original undefined values.
+
+```ts
+restoreUndefined({ a: 1, b: "__UNDEFINED__" })
+// → { a: 1, b: undefined }
+```
+
+---
+
+#### `flat(obj: unknown): Record<string, unknown>[]`
+Flattens a nested object/array structure into an array of path-value pairs.
+
+**Returns:** Array of single-entry objects where keys are flat paths.
+
+```ts
+flat({ user: { name: "Alice", roles: ["admin"] } })
+// → [
+//   { ".user.name": "Alice" },
+//   { ".user.roles@0": "admin" }
+// ]
+```
+
+**Note:** Use `replaceUndefined()` first if your data contains `undefined`.
+
+---
+
+#### `unflat(entries: Record<string, unknown>[]): unknown`
+Reconstructs the original nested structure from flattened path-value pairs.
+
+**Inverse of:** `flat()`
+
+```ts
+unflat([{ ".user.name": "Alice" }, { ".user.roles@0": "admin" }])
+// → { user: { name: "Alice", roles: ["admin"] } }
+```
+
+---
+
+#### `diff(a: unknown, b: unknown, arrayReplace?: boolean): DiffOperation[]`
+Computes the structural difference between two objects.
+
 **Parameters:**
-- `diff(a, b, path = '', arrayReplace = false)`: Compare objects with optional array replacement mode
-  - `path`: Internal recursion path (usually omit for top-level calls)
-  - `arrayReplace`: When `true`, replaces entire arrays if lengths differ instead of element-by-element diff
+- `a` - Original object
+- `b` - New object
+- `arrayReplace` (optional, default: `false`) - When `true`, replaces entire arrays if their lengths differ instead of generating element-by-element operations
+
+**Returns:** Array of operations describing how to transform `a` into `b`
+
+**Operation Types:**
+- `{ type: 'add', path: string, value: unknown }` - Add a new property
+- `{ type: 'set', path: string, value: unknown }` - Change a value
+- `{ type: 'remove', path: string }` - Remove a property
+
+```ts
+diff({ x: 1 }, { x: 2, y: 3 })
+// → [
+//   { type: 'set', path: '.x', value: 2 },
+//   { type: 'add', path: '.y', value: 3 }
+// ]
+
+// With arrayReplace mode
+diff([1, 2], [1, 2, 3, 4], true)
+// → [ { type: 'set', path: '', value: [1, 2, 3, 4] } ]
+```
+
+---
+
+#### `apply(input: unknown, operations: DiffOperation[]): unknown`
+Applies a set of diff operations to transform an object.
+
+**Parameters:**
+- `input` - Original object
+- `operations` - Array of operations from `diff()`
+
+**Returns:** New object with operations applied
+
+```ts
+const obj = { x: 1 }
+const ops = diff(obj, { x: 2, y: 3 })
+apply(obj, ops)
+// → { x: 2, y: 3 }
+```
+
+**Use case:** Round-trip transformations
+```ts
+const result = apply(a, diff(a, b))
+// result is equivalent to b
+```
+
+---
+
+#### `sortKeys(obj: unknown): unknown`
+Recursively sorts object keys alphabetically.
+
+**Why:** Ensures consistent ordering for comparisons and diffs.
+
+```ts
+sortKeys({ z: 1, a: 2, m: { y: 3, b: 4 } })
+// → { a: 2, m: { b: 4, y: 3 }, z: 1 }
+```
+
+---
+
+### Type Definitions
+
+```ts
+type DiffOperation =
+  | { type: 'add'; path: string; value: unknown }
+  | { type: 'remove'; path: string }
+  | { type: 'set'; path: string; value: unknown };
+```
 
 ---
 

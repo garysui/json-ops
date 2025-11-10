@@ -190,7 +190,7 @@ function getType(value: unknown): 'null' | 'array' | 'object' | 'primitive' {
   return 'primitive';
 }
 
-export function diff(a: unknown, b: unknown, path: string = '', arrayReplace: boolean = false): DiffOperation[] {
+function diffInternal(a: unknown, b: unknown, path: string, arrayReplace: boolean): DiffOperation[] {
   const operations: DiffOperation[] = [];
 
   // Handle undefined by converting to marker
@@ -261,7 +261,7 @@ export function diff(a: unknown, b: unknown, path: string = '', arrayReplace: bo
         });
       } else if (inA && inB) {
         // Keys in both - recurse
-        operations.push(...diff(objA[key], objB[key], newPath, arrayReplace));
+        operations.push(...diffInternal(objA[key], objB[key], newPath, arrayReplace));
       }
     }
 
@@ -310,7 +310,7 @@ export function diff(a: unknown, b: unknown, path: string = '', arrayReplace: bo
         });
       } else {
         // Both exist - recurse
-        operations.push(...diff(arrA[i], arrB[i], newPath, arrayReplace));
+        operations.push(...diffInternal(arrA[i], arrB[i], newPath, arrayReplace));
       }
     }
 
@@ -318,6 +318,10 @@ export function diff(a: unknown, b: unknown, path: string = '', arrayReplace: bo
   }
 
   return operations;
+}
+
+export function diff(a: unknown, b: unknown, arrayReplace: boolean = false): DiffOperation[] {
+  return diffInternal(a, b, '', arrayReplace);
 }
 
 export function apply(input: unknown, operations: DiffOperation[]): unknown {
